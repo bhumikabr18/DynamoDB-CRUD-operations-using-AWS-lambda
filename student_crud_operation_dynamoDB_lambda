@@ -1,0 +1,96 @@
+import json
+import boto3
+from botocore.exceptions import ClientError
+
+# Initialize DynamoDB resource
+dynamodb = boto3.resource('dynamodb')
+table = dynamodb.Table('studentsCreation')
+
+def lambda_handler(event, context):
+    operation = event.get('operation')
+    
+    if operation == 'CREATE':
+        return create_student(event['student'])
+    elif operation == 'READ':
+        return read_student(event['studentId'])
+    elif operation == 'UPDATE':
+        return update_student(event['student'])
+    elif operation == 'DELETE':
+        return delete_student(event['studentId'])
+    else:
+        return {
+            'statusCode': 400,
+            'body': json.dumps('Unsupported operation')
+        }
+    
+    # Create a student record
+def create_student(student):
+    try:
+        table.put_item(Item=student)
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Student added successfully')
+        }
+    except ClientError as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error adding student: {e}')
+        }
+    
+    # Read a student record
+def read_student(student_id):
+    try:
+        response = table.get_item(Key={'studentId': student_id})
+        if 'Item' in response:
+            return {
+                'statusCode': 200,
+                'body': json.dumps(response['Item'])
+            }
+        else:
+            return {
+                'statusCode': 404,
+                'body': json.dumps('Student not found')
+            }
+    except ClientError as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error reading student: {e}')
+        }
+    
+    # Update a student record
+def update_student(student):
+    try:
+        response = table.update_item(
+            Key={'studentId': student['studentId']},
+            UpdateExpression="set #name = :name, age = :age, grade = :grade",
+            ExpressionAttributeNames={'#name': 'name'},
+            ExpressionAttributeValues={
+                ':name': student['name'],
+                ':age': student['age'],
+                ':grade': student['grade']
+            },
+            ReturnValues="UPDATED_NEW"
+        )
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Student updated successfully')
+        }
+    except ClientError as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error updating student: {e}')
+        }
+    
+    # Delete a student record
+def delete_student(student_id):
+    try:
+        table.delete_item(Key={'studentId': student_id})
+        return {
+            'statusCode': 200,
+            'body': json.dumps('Student deleted successfully')
+        }
+    except ClientError as e:
+        return {
+            'statusCode': 500,
+            'body': json.dumps(f'Error deleting student: {e}')
+        }
